@@ -1,14 +1,26 @@
 <?php
 
 class StatsD {
-
-	public static $HOSTNAME = "some.hostname.here";
-	public static $PORT_NUMBER = 8125;
-
-	private function __construct() { }
+	
+	private $hostname;
+	private $port_number;
+	
+	public function __construct($hostname, $port_number) {
+		$this->hostname = $hostname;
+		$this->port_number = $port_number;
+	}
+	
 	private function __clone() { }
 	private function __destruct() { }
-
+	
+	public function getHostname() {
+		return $this->hostname;
+	}
+	
+	public function getPortNumber() {
+		return $this->port_number;
+	}
+	
 	/**
 	 * Log timing information
 	 *
@@ -16,8 +28,8 @@ class StatsD {
 	 * @param float $time The ellapsed time (ms) to log
 	 * @param float|1 $sample_rate the rate (0-1) for sampling.
 	 **/
-	public static function timing($stat, $time, $sample_rate = 1) {
-		StatsD::send(array($stat => "$time|ms"), $sample_rate);
+	public function timing($stat, $time, $sample_rate = 1) {
+		$this->send(array($stat => "$time|ms"), $sample_rate);
 	}
 
 	/**
@@ -27,8 +39,8 @@ class StatsD {
 	 * @param float|1 $sample_rate the rate (0-1) for sampling.
 	 * @return boolean
 	 **/
-	public static function increment($stats, $sample_rate = 1) {
-		StatsD::update_stats($stats, 1, $sample_rate);
+	public function increment($stats, $sample_rate = 1) {
+		$this->update_stats($stats, 1, $sample_rate);
 	}
 
 	/**
@@ -38,11 +50,11 @@ class StatsD {
 	 * @param float|1 $sample_rate the rate (0-1) for sampling.
 	 * @return boolean
 	 **/
-	public static function decrement($stats, $sample_rate = 1) {
-		StatsD::update_stats($stats, -1, $sample_rate);
+	public function decrement($stats, $sample_rate = 1) {
+		$this->update_stats($stats, -1, $sample_rate);
 	}
 
-	/*
+	/**
 	 * Updates one or more stats counters by arbitrary amounts.
 	 *
 	 * @param string|array $stats The metric(s) to update. Should be either a string or array of metrics.
@@ -50,7 +62,7 @@ class StatsD {
 	 * @param float|1 $sample_rate the rate (0-1) for sampling.
 	 * @return boolean
 	 */
-	public static function update_stats($stats, $delta = 1, $sample_rate = 1) {
+	public function update_stats($stats, $delta = 1, $sample_rate = 1) {
 		if (!is_array($stats)) {
 			$stats = array($stats);
 		}
@@ -58,13 +70,13 @@ class StatsD {
 		foreach ($stats as $stat) {
 			$data[$stat] = "$delta|c";
 		}
-		StatsD::send($data, $sample_rate);
+		$this->send($data, $sample_rate);
 	}
 
-	/*
+	/**
 	 * Send the metrics over UDP
 	 */
-	public static function send($data, $sample_rate = 1) {
+	public function send($data, $sample_rate = 1) {
 		$sampled_data = array();
 		if ($sample_rate < 1) {
 			foreach ($data as $stat => $value) {
@@ -79,8 +91,8 @@ class StatsD {
 			return;
 		}
 		try {
-			$host = StatsD::$HOSTNAME;
-			$port = StatsD::$PORT_NUMBER;
+			$host = $this->hostname;
+			$port = $this->port_number;
 			$fp = fsockopen("udp://$host", $port, $errno, $errstr);
 			if (!$fp) {
 				return;
@@ -89,10 +101,8 @@ class StatsD {
 				fwrite($fp, "$stat:$value");
 			}
 			fclose($fp);
-		} catch (Exception $e) {
-			//You should probably plug-in your web applications logging here, else errors will not be handled.
+		} catch (Exception $ex) {
+			error_log("StatsD Exception: " . $ex->getMessage());
 		}
 	}
 }
-
-?>
